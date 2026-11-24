@@ -1,0 +1,32 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+
+# Jupyter checkpoints (keep .ipynb notebooks tracked)
+.ipynb_checkpoints/
+
+# Secrets & credentials
+.env
+.env.*
+!.env.example
+kaggle.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Artifacts: track artifacts/ and any subdirectory inside it (via .gitkeep),
+# while ignoring all other contents at any depth.
+/artifacts/**
+!/artifacts/**/
+!/artifacts/**/.gitkeep
