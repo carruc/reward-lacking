@@ -20,10 +20,19 @@ import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from data.gallery.apply_annotations import DEFAULT_ANNOTATIONS, DEFAULT_COLUMN, DEFAULT_TRAIN_CSV, apply_annotations
+from data.gallery.apply_annotations import (
+    DEFAULT_ANNOTATIONS,
+    DEFAULT_COLUMN,
+    DEFAULT_TRAIN_CSV,
+    apply_annotations,
+)
+from data.gallery.build_manifest import build_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GALLERY_DIR = Path(__file__).resolve().parent
+MANIFEST_PATH = GALLERY_DIR / "manifest.json"
+# URL path of the dataset as served from the repo root (the handler's directory)
+DATASET_URL_PATH = "/" + DEFAULT_TRAIN_CSV.parent.relative_to(REPO_ROOT).as_posix()
 
 _WRITE_LOCK = threading.Lock()
 
@@ -54,10 +63,15 @@ class GalleryHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(REPO_ROOT), **kwargs)
 
     def do_GET(self) -> None:
-        if self.path.split("?", 1)[0] == "/api/annotations":
+        path = self.path.split("?", 1)[0]
+        if path == "/api/annotations":
             self._send_json(read_annotations(self.annotations_path))
-            return
-        super().do_GET()
+        elif path == "/api/dataset-root":
+            # Tell the page where the images actually are, relative to this
+            # server's root (the repo root), instead of letting it guess.
+            self._send_json({"root": DATASET_URL_PATH})
+        else:
+            super().do_GET()
 
     def do_POST(self) -> None:
         path = self.path.split("?", 1)[0]
@@ -105,6 +119,16 @@ def serve(
     column: str = DEFAULT_COLUMN,
 ) -> None:
     """Run the gallery + annotation API until interrupted."""
+    if not MANIFEST_PATH.exists():
+        try:
+            count = build_manifest(output=MANIFEST_PATH)
+            print(f"built {MANIFEST_PATH} ({count} entries)", flush=True)
+        except Exception as err:  # dataset likely missing; the page explains this
+            print(
+                f"warning: could not build the manifest automatically ({err}).\n"
+                "         Once the dataset is downloaded (uv run download-dataset), run uv run build-gallery.",
+                flush=True,
+            )
     GalleryHandler.annotations_path = annotations_path
     GalleryHandler.train_csv = train_csv
     GalleryHandler.column = column

@@ -50,7 +50,28 @@
   }
   input[type=range] { accent-color: var(--accent); }
   .count { color: var(--dim); font-size: 12.5px; margin-left: auto; white-space: nowrap; }
-  main { padding: 14px 16px 60vh; } /* bottom padding keeps sentinel reachable past last row */
+  main {
+  padding: 14px 16px 60vh; /* bottom padding keeps sentinel reachable past last row */
+}
+#boot-error {
+  max-width: 760px;
+  margin: 4px auto 16px;
+  padding: 10px 14px;
+  border: 1px solid #b3564d;
+  border-radius: 8px;
+  background: #2a1717;
+  color: #f2c4bd;
+  font-size: 13px;
+  line-height: 1.55;
+}
+#boot-error code {
+  color: #fff;
+  background: none;
+  padding: 0;
+}
+#boot-error strong {
+  color: #ff9d8f;
+}
   #grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr)); gap: 8px;
   }
@@ -70,6 +91,33 @@
   .tile.test img { opacity: .82; }
   #sentinel { height: 10px; }
   #empty { color: var(--dim); padding: 40px 0; text-align: center; }
+  #boot-error {
+    max-width: 760px;
+    margin: 4px auto 16px;
+    padding: 12px 16px;
+    border: 1px solid #b3564d;
+    border-radius: 8px;
+    background: #2a1717;
+    color: #f2c4bd;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  #boot-error code {
+    color: #fff;
+    background: none;
+    padding: 0;
+  }
+  #boot-error strong {
+    color: #ff9d8f;
+  }
+  #boot-error {
+    max-width: 760px; margin: 4px auto 16px; padding: 12px 16px;
+    border: 1px solid #b3564d; border-radius: 8px;
+    background: #2a1717; color: #f2c4bd;
+    font-size: 13px; line-height: 1.55;
+  }
+  #boot-error code { color: #fff; background: none; padding: 0; }
+  #boot-error strong { color: #ff9d8f; }
   /* lightbox */
   #lb {
     position: fixed; inset: 0; z-index: 50; display: none;
@@ -216,6 +264,7 @@
 </header>
 
 <main>
+  <div id="boot-error" hidden></div>
   <div id="grid"></div>
   <div id="empty" hidden>No images match the current filters.</div>
   <div id="sentinel"></div>
@@ -263,7 +312,8 @@ let manifest = [];          // [{id, split, label}]
 let filtered = [];          // indexes into manifest
 let rendered = 0;
 let state = { cls: "all", split: "all", q: "", sort: "id" };
-let datasetRoot = "../dataset";
+let datasetRoot = null;     // resolved at boot (/api/dataset-root first, then probing)
+let triedRoots = [];
 
 const $ = (s) => document.querySelector(s);
 const grid = $("#grid"), sentinel = $("#sentinel"), lb = $("#lb");
@@ -424,6 +474,22 @@ let apiAlive = true;       // false when no /api backend (e.g. served by a plain
 
 const tagsOf = (id) => (annotations[id] || (annotations[id] = []));
 
+let saveTimer = null;
+
+const setStatus = (text) => { $("#save-status").textContent = text; };
+const countTagged = () => Object.values(annotations).filter((tags) => tags.length > 0).length;
+
+/** Merge server-stored labels with any newer local edits. */
+function unionTags(id, tags) {
+  annotations[id] = [...new Set([...(annotations[id] || []), ...tags])];
+}
+
+function closeTagEditor() {
+  $("#ann").classList.remove("open");
+  annId = null;
+  applyFilters(); // refresh the label badges
+}
+
 function scheduleSave() {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(annotations));
   setStatus("saving…");
@@ -545,16 +611,66 @@ async function loadAnnotations() {
   setStatus(`${countTagged()} tagged`);
 }
 
+function bootError(title, hint) {
+  console.error(title);
+  const b = $("#boot-error");
+  if (!b) return;
+  b.hidden = false;
+  b.innerHTML = `<strong>${title}</strong><br>${hint}`;
+}
+
+async function resolveDatasetRoot(firstId) {
+  const candidates = [];
+  try {
+    const res = await fetch("/api/dataset-root");
+    if (res.ok) candidates.push((await res.json()).root);
+  } catch {}
+  candidates.push("../../artifacts/dataset", "../dataset", "dataset", "/dataset");
+  for (const c of candidates) {
+    triedRoots.push(`${c}/train/${firstId}.png`);
+    try {
+      let res = await fetch(`${c}/train/${firstId}.png`, { method: "HEAD" });
+      // Some servers and proxies reply oddly (or not at all) to HEAD: if the
+      // probe did not clearly succeed, retry with a small ranged GET.
+      if (!res.ok) {
+        res = await fetch(`${c}/train/${firstId}.png`, { headers: { Range: "bytes=0-63" } });
+      }
+      if (res.ok || res.status === 206) return c;
+    } catch {}
+  }
+  return null;
+}
+
 /* ---------- boot ---------- */
 (async () => {
-  manifest = await (await fetch("manifest.json")).json();
-  // Probe likely dataset roots (this repo serves artifacts/dataset; the last
-  // entries keep the original sibling-folder layout working).
-  for (const c of ["../../artifacts/dataset", "../dataset", "dataset", "/dataset"]) {
-    try {
-      const r = await fetch(`${c}/train/${manifest[0].id}.png`, { method: "HEAD" });
-      if (r.ok) { datasetRoot = c; break; }
-    } catch {}
+  // The manifest is generated from the dataset and is not committed: on a
+  // fresh checkout this request 404s and the banner above explains what to do.
+  try {
+    const res = await fetch(`manifest.json?t=${Date.now()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} for manifest.json`);
+    manifest = await res.json();
+  } catch (err) {
+    console.error(err);
+    bootError(
+      `<strong>manifest.json could not be loaded.</strong> The gallery index is generated from the dataset and is not committed.`,
+      `Run <code>uv run build-gallery</code> in the repository root, then reload. If <code>artifacts/dataset</code> is empty, first run <code>uv run download-dataset</code>.`
+    );
+    return;
+  }
+  if (!Array.isArray(manifest) || manifest.length === 0) {
+    bootError(
+      `<strong>manifest.json is empty</strong> — no images were found under the dataset root.`,
+      `Run <code>uv run download-dataset</code>, then <code>uv run build-gallery</code>, and reload the page.`
+    );
+    return;
+  }
+  datasetRoot = await resolveDatasetRoot(manifest[0].id);
+  if (datasetRoot === null) {
+    bootError(
+      `<strong>The dataset images are not reachable from this page.</strong> Probed, in order: ${triedRoots.map((c) => `<code>${esc(c)}</code>`).join(", ")}`,
+      `Serve the repository root (so <code>artifacts/dataset</code> is exposed) with <code>./data/gallery/run.sh</code>, or open this page from the repo root. If <code>artifacts/dataset</code> is empty, run <code>uv run download-dataset</code> first, then <code>uv run build-gallery</code>.`
+    );
+    return;
   }
   await loadAnnotations();
   buildChips();

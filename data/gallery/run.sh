@@ -7,7 +7,7 @@
 cd "$(dirname "$0")/../.." || exit 1
 
 if [ ! -f "data/gallery/manifest.json" ]; then
-    uv run build-gallery
+    uv run build-gallery || echo "warning: manifest not built (dataset missing?) — the page shows details on load" >&2
 fi
 
 exec uv run serve-gallery "${1:-8000}"
