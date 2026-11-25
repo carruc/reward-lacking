@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaxy10 DECaLS gallery</title>
+<style>
+  :root {
+    --tile: 168px;      /* controlled by the size slider */
+    --bg: #0b0d10;
+    --panel: #15181d;
+    --line: #262b33;
+    --fg: #d7dce3;
+    --dim: #8b95a3;
+    --accent: #4f9cf9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 16px;
+  }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  h1 { font-size: 15px; margin: 0 10px 0 0; font-weight: 600; letter-spacing: .2px; }
+  h1 span { color: var(--dim); font-weight: 400; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    border: 1px solid var(--line); background: var(--panel); color: var(--fg);
+    border-radius: 999px; padding: 4px 11px; cursor: pointer; font-size: 12.5px;
+    user-select: none; white-space: nowrap;
+  }
+  .chip small { color: var(--dim); }
+  .chip:hover { border-color: var(--accent); }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip.on small { color: #e5eefc; }
+  input[type=text] {
+    background: var(--panel); border: 1px solid var(--line); color: var(--fg);
+    border-radius: 8px; padding: 6px 10px; font-size: 13px; width: 180px; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  select {
+    background: var(--panel); border: 1px solid var(--line); color: var(--fg);
+    border-radius: 8px; padding: 6px 8px; font-size: 13px; outline: none;
+  }
+  input[type=range] { accent-color: var(--accent); }
+  .count { color: var(--dim); font-size: 12.5px; margin-left: auto; white-space: nowrap; }
+  main { padding: 14px 16px 60vh; } /* bottom padding keeps sentinel reachable past last row */
+  #grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr)); gap: 8px;
+  }
+  .tile {
+    position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--line); cursor: zoom-in;
+  }
+  .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tile .tag {
+    position: absolute; left: 0; bottom: 0; right: 0;
+    font-size: 10.5px; padding: 2px 5px;
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    display: flex; justify-content: space-between; gap: 4px;
+  }
+  .tile .tag .cls { color: #fff; font-weight: 600; }
+  .tile .tag .sp { color: var(--dim); }
+  .tile.test img { opacity: .82; }
+  #sentinel { height: 10px; }
+  #empty { color: var(--dim); padding: 40px 0; text-align: center; }
+  /* lightbox */
+  #lb {
+    position: fixed; inset: 0; z-index: 50; display: none;
+    background: rgba(0,0,0,.92); align-items: center; justify-content: center; flex-direction: column;
+  }
+  #lb.open { display: flex; }
+  #lb img { max-width: min(92vw, 720px); max-height: 78vh; border-radius: 4px; }
+  #lb .meta { margin-top: 12px; font-size: 14px; color: var(--fg); text-align: center; }
+  #lb .meta .cls { font-weight: 700; }
+  #lb .hint { margin-top: 6px; color: var(--dim); font-size: 12px; }
+  #lb .nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    font-size: 40px; color: var(--dim); background: none; border: none; cursor: pointer; padding: 20px;
+  }
+  #lb .nav:hover { color: #fff; }
+  #lb .prev { left: 6px; } #lb .next { right: 6px; }
+  #lb .close { position: absolute; top: 10px; right: 16px; font-size: 26px; color: var(--dim);
+               background: none; border: none; cursor: pointer; }
+  #lb .close:hover { color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <h1>Galaxy10 DECaLS <span>browse</span></h1>
+    <input id="q" type="text" placeholder="filter by id (e.g. 0123)" spellcheck="false">
+    <span class="chips" id="splitChips"></span>
+    <select id="sort" title="order">
+      <option value="id">id ↑</option>
+      <option value="iddesc">id ↓</option>
+      <option value="class">class</option>
+    </select>
+    <button class="chip" id="shuffle" title="Shuffle the current view">&#x1f500; shuffle</button>
+    <label class="chip" title="thumbnail size">size <input id="size" type="range" min="110" max="320" value="168" step="10"></label>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <span class="chips" id="classChips"></span>
+  </div>
+</header>
+
+<main>
+  <div id="grid"></div>
+  <div id="empty" hidden>No images match the current filters.</div>
+  <div id="sentinel"></div>
+</main>
+
+<div id="lb" role="dialog" aria-modal="true">
+  <button class="nav prev" aria-label="previous">&#x2039;</button>
+  <img id="lbImg" alt="">
+  <div class="meta" id="lbMeta"></div>
+  <div class="hint">← → to move, Esc to close</div>
+  <button class="nav next" aria-label="next">&#x203a;</button>
+  <button class="close" aria-label="close">&#x2715;</button>
+</div>
+
+<script>
+"use strict";
+/* Galaxy10 DECaLS class names (astronn). Edit here if your labels differ. */
+const CLASSES = [
+  "Disturbed", "Merging", "Round Smooth", "In-between Round Smooth",
+  "Cigar Smooth", "Barred Spiral", "Unbarred Tight Spiral",
+  "Unbarred Loose Spiral", "Edge-on no Bulge", "Edge-on with Bulge",
+];
+const CLASS_COLOR = ["#e05c5c","#e08b3c","#e6c74a","#7ac74a","#4fc98e",
+                     "#4fb9d8","#5b7bf0","#9a6df0","#d35fbe","#c9998a"];
+const PAGE = 120; // tiles rendered per chunk
+
+let manifest = [];          // [{id, split, label}]
+let filtered = [];          // indexes into manifest
+let rendered = 0;
+let state = { cls: "all", split: "all", q: "", sort: "id" };
+let datasetRoot = "../dataset";
+
+const $ = (s) => document.querySelector(s);
+const grid = $("#grid"), sentinel = $("#sentinel"), lb = $("#lb");
+let lbIndex = -1;
+
+const imgSrc = (m) => `${datasetRoot}/${m.split}/${m.id}.png`;
+const clsName = (l) => l === null ? "unlabelled" : `class ${l}: ${CLASSES[l] ?? "?"}`;
+
+/* ---------- filtering ---------- */
+function applyFilters() {
+  const q = state.q;
+  const out = [];
+  for (let i = 0; i < manifest.length; i++) {
+    const m = manifest[i];
+    if (state.split !== "all" && m.split !== state.split) continue;
+    if (state.cls !== "all" && m.label !== state.cls) continue; // test items have no label -> excluded
+    if (q && !m.id.includes(q)) continue;
+    out.push(i);
+  }
+  if (state.sort === "class") {
+    out.sort((a, b) => (manifest[a].label ?? 99) - (manifest[b].label ?? 99) || manifest[a].id.localeCompare(manifest[b].id));
+  } else if (state.sort === "iddesc") {
+    out.sort((a, b) => manifest[b].id.localeCompare(manifest[a].id));
+  } else {
+    out.sort((a, b) => manifest[a].id.localeCompare(manifest[b].id));
+  }
+  filtered = out;
+  rendered = 0;
+  grid.innerHTML = "";
+  $("#empty").hidden = filtered.length > 0;
+  updateCount();
+  renderChunk();
+}
+
+function updateCount() {
+  const n = filtered.length;
+  $("#count").textContent = `showing ${n.toLocaleString()} / ${manifest.length.toLocaleString()}`;
+}
+
+function renderChunk() {
+  const end = Math.min(rendered + PAGE, filtered.length);
+  let html = "";
+  for (; rendered < end; rendered++) {
+    const m = manifest[filtered[rendered]];
+    const tag = m.label === null
+      ? `<span class="cls"></span><span class="sp">test</span>`
+      : `<span class="cls" style="color:${color(m.label)}">${m.label} · ${CLASSES[m.label] ?? "?"}</span><span class="sp">train</span>`;
+    html += `<div class="tile ${m.label === null ? "test" : ""}" data-i="${rendered}" title="${m.id} — ${clsName(m.label)}">
+               <img loading="lazy" decoding="async" src="${imgSrc(m)}" alt="${m.id}">
+               <div class="tag">${tag}</div>
+             </div>`;
+  }
+  grid.insertAdjacentHTML("beforeend", html);
+}
+
+const color = (l) => `hsl(${(l * 36 + 10) % 360} 62% 62%)`;
+
+/* ---------- controls ---------- */
+function buildChips() {
+  const counts = {}; // class -> train count
+  for (const m of manifest) if (m.label !== null) counts[m.label] = (counts[m.label] || 0) + 1;
+
+  const sc = $("#splitChips");
+  sc.innerHTML = "";
+  for (const [val, label, n] of [["all","all",manifest.length],
+                                 ["train","train",manifest.filter(m=>m.split==='train').length],
+                                 ["test","test",manifest.filter(m=>m.split==='test').length]]) {
+    const b = document.createElement("button");
+    b.className = "chip"; b.dataset.split = val;
+    b.innerHTML = `${label} <small>${n.toLocaleString()}</small>`;
+    b.onclick = () => { state.split = val; syncChips(); applyFilters(); };
+    sc.appendChild(b);
+  }
+
+  const cc = $("#classChips");
+  cc.innerHTML = "";
+  const mk = (val, label, n) => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.dataset.cls = val;
+    b.innerHTML = `${label} <small>${n}</small>`;
+    b.onclick = () => {
+      state.cls = val === state.cls && val !== "all" ? "all" : val;
+      syncChips(); applyFilters();
+    };
+    cc.appendChild(b);
+  };
+  mk("all", "All classes", manifest.filter(m => m.split === "train").length);
+  CLASSES.forEach((name, l) => mk(l, `${l} ${name}`, counts[l] || 0));
+  syncChips();
+}
+
+function syncChips() {
+  document.querySelectorAll("#classChips .chip").forEach(b =>
+    b.classList.toggle("on", String(state.cls) === b.dataset.cls));
+  document.querySelectorAll("#splitChips .chip").forEach(b =>
+    b.classList.toggle("on", state.split === b.dataset.split));
+}
+
+let debounce;
+$("#q").addEventListener("input", (e) => {
+  clearTimeout(debounce);
+  debounce = setTimeout(() => { state.q = e.target.value.trim(); applyFilters(); }, 150);
+});
+$("#sort").addEventListener("change", (e) => { state.sort = e.target.value; applyFilters(); });
+$("#shuffle").onclick = () => {
+  for (let i = filtered.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+  }
+  rendered = 0; grid.innerHTML = ""; renderChunk();
+};
+$("#size").addEventListener("input", (e) =>
+  document.documentElement.style.setProperty("--tile", e.target.value + "px"));
+
+/* ---------- lightbox ---------- */
+function openLightbox(i) {
+  lbIndex = i;
+  const m = manifest[filtered[i]];
+  $("#lbImg").src = imgSrc(m);
+  $("#lbMeta").innerHTML =
+    `<span class="cls" style="color:${m.label === null ? "var(--dim)" : color(m.label)}">
+       ${m.id}.png</span><br>${clsName(m.label)} · ${m.split}`;
+  lb.classList.add("open");
+}
+const move = (d) => lb.classList.contains("open") && filtered.length &&
+  openLightbox((lbIndex + d + filtered.length) % filtered.length);
+
+grid.addEventListener("click", (e) => {
+  const t = e.target.closest(".tile");
+  if (t) openLightbox(+t.dataset.i);
+});
+$(".close").onclick = () => lb.classList.remove("open");
+$(".prev").onclick = () => move(-1);
+$(".next").onclick = () => move(1);
+lb.addEventListener("click", (e) => { if (e.target === lb) lb.classList.remove("open"); });
+document.addEventListener("keydown", (e) => {
+  if (!lb.classList.contains("open")) return;
+  if (e.key === "Escape") lb.classList.remove("open");
+  else if (e.key === "ArrowLeft") move(-1);
+  else if (e.key === "ArrowRight") move(1);
+});
+
+/* ---------- infinite scroll ---------- */
+new IntersectionObserver((entries) => {
+  if (entries[0].isIntersecting && rendered < filtered.length) renderChunk();
+}, { rootMargin: "1400px" }).observe(sentinel);
+
+/* ---------- boot ---------- */
+(async () => {
+  manifest = await (await fetch("manifest.json")).json();
+  // Probe likely dataset roots (this repo serves artifacts/dataset; the last
+  // entries keep the original sibling-folder layout working).
+  for (const c of ["../../artifacts/dataset", "../dataset", "dataset", "/dataset"]) {
+    try {
+      const r = await fetch(`${c}/train/${manifest[0].id}.png`, { method: "HEAD" });
+      if (r.ok) { datasetRoot = c; break; }
+    } catch {}
+  }
+  buildChips();
+  applyFilters();
+})();
+</script>
+</body>
+</html>

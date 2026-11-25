@@ -21,6 +21,9 @@ wheels/
 !.env.example
 kaggle.json
 
+# Generated gallery manifest (rebuild with `uv run build-gallery`)
+data/gallery/manifest.json
+
 # OS files
 .DS_Store
 Thumbs.db
