@@ -89,12 +89,113 @@
   #lb .close { position: absolute; top: 10px; right: 16px; font-size: 26px; color: var(--dim);
                background: none; border: none; cursor: pointer; }
   #lb .close:hover { color: #fff; }
+
+  /* labels (right-click editor) */
+  #grid .tag-count {
+    color: var(--accent);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  #lb .lb-tags {
+    color: var(--dim);
+  }
+  #ann {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, .72);
+  }
+  #ann.open { display: flex; }
+  #ann .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    width: min(92vw, 430px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .55);
+  }
+  #ann .thumb {
+    float: right;
+    width: 88px;
+    height: 88px;
+    margin: 0 0 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    object-fit: cover;
+  }
+  #ann h2 {
+    margin: 4px 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    overflow-wrap: anywhere;
+  }
+  #ann .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 24px;
+    align-items: center;
+  }
+  #ann .tags:empty::after {
+    content: "no labels yet";
+    color: var(--dim);
+    font-size: 12px;
+  }
+  #ann .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 2px 6px 2px 10px;
+    font-size: 12px;
+  }
+  #ann .tag button {
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px;
+  }
+  #ann .tag button:hover {
+    color: #fff;
+  }
+  #ann .addrow {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  #ann .addrow input[type=text] {
+    flex: 1;
+    width: auto;
+  }
+  #ann .hint {
+    color: var(--dim);
+    font-size: 11.5px;
+    margin-top: 8px;
+  }
+  #ann .hint code {
+    color: var(--fg);
+  }
+  #ann .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+  }
 </style>
 </head>
 <body>
 <header>
   <div class="row">
-    <h1>Galaxy10 DECaLS <span>browse</span></h1>
+    <h1 title="Right-click an image to edit its labels.">Galaxy10 DECaLS <span>browse</span></h1>
     <input id="q" type="text" placeholder="filter by id (e.g. 0123)" spellcheck="false">
     <span class="chips" id="splitChips"></span>
     <select id="sort" title="order">
@@ -104,7 +205,10 @@
     </select>
     <button class="chip" id="shuffle" title="Shuffle the current view">&#x1f500; shuffle</button>
     <label class="chip" title="thumbnail size">size <input id="size" type="range" min="110" max="320" value="168" step="10"></label>
+    <button class="chip" id="save-annotations" title="Save labels to data/gallery/annotations.json">&#x1f3f7; save</button>
+    <button class="chip" id="apply-annotations" title="Merge saved labels into artifacts/dataset/train.csv (extra_labels column)">&#x2192; train.csv</button>
     <span class="count" id="count"></span>
+    <span class="count" id="save-status"></span>
   </div>
   <div class="row" style="margin-top:8px">
     <span class="chips" id="classChips"></span>
@@ -124,6 +228,23 @@
   <div class="hint">← → to move, Esc to close</div>
   <button class="nav next" aria-label="next">&#x203a;</button>
   <button class="close" aria-label="close">&#x2715;</button>
+</div>
+
+<div id="ann" role="dialog" aria-modal="true">
+  <div class="panel">
+    <img id="ann-img" class="thumb" alt="">
+    <h2 id="ann-title"></h2>
+    <div id="ann-tags" class="tags"></div>
+    <div class="addrow">
+      <input id="ann-input" type="text" list="ann-suggestions" placeholder="add label — Enter to confirm" spellcheck="false">
+      <datalist id="ann-suggestions"></datalist>
+      <button class="chip" id="ann-add">add</button>
+    </div>
+    <div class="hint">Enter adds a label, &#x2715; removes it. Saved to <code>data/gallery/annotations.json</code> when the dialog closes.</div>
+    <div class="actions">
+      <button class="chip on" id="ann-done">done</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -149,6 +270,7 @@ const grid = $("#grid"), sentinel = $("#sentinel"), lb = $("#lb");
 let lbIndex = -1;
 
 const imgSrc = (m) => `${datasetRoot}/${m.split}/${m.id}.png`;
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 const clsName = (l) => l === null ? "unlabelled" : `class ${l}: ${CLASSES[l] ?? "?"}`;
 
 /* ---------- filtering ---------- */
@@ -187,12 +309,16 @@ function renderChunk() {
   let html = "";
   for (; rendered < end; rendered++) {
     const m = manifest[filtered[rendered]];
+    const tags = annotations[m.id] || [];
+    const ann = tags.length > 0
+      ? `<span class="tag-count" title="labels: ${esc(tags.join(", "))}">&#x1f3f7;${tags.length}</span>`
+      : "";
     const tag = m.label === null
       ? `<span class="cls"></span><span class="sp">test</span>`
       : `<span class="cls" style="color:${color(m.label)}">${m.label} · ${CLASSES[m.label] ?? "?"}</span><span class="sp">train</span>`;
-    html += `<div class="tile ${m.label === null ? "test" : ""}" data-i="${rendered}" title="${m.id} — ${clsName(m.label)}">
+    html += `<div class="tile ${m.label === null ? "test" : ""}" data-i="${rendered}" title="${esc(`${m.id} — ${clsName(m.label)}${tags.length ? " · labels: " + tags.join(", ") : ""}`)}">
                <img loading="lazy" decoding="async" src="${imgSrc(m)}" alt="${m.id}">
-               <div class="tag">${tag}</div>
+               <div class="tag">${tag}${ann}</div>
              </div>`;
   }
   grid.insertAdjacentHTML("beforeend", html);
@@ -279,7 +405,7 @@ $(".prev").onclick = () => move(-1);
 $(".next").onclick = () => move(1);
 lb.addEventListener("click", (e) => { if (e.target === lb) lb.classList.remove("open"); });
 document.addEventListener("keydown", (e) => {
-  if (!lb.classList.contains("open")) return;
+  if (!lb.classList.contains("open") || $("#ann").classList.contains("open")) return;
   if (e.key === "Escape") lb.classList.remove("open");
   else if (e.key === "ArrowLeft") move(-1);
   else if (e.key === "ArrowRight") move(1);
@@ -289,6 +415,135 @@ document.addEventListener("keydown", (e) => {
 new IntersectionObserver((entries) => {
   if (entries[0].isIntersecting && rendered < filtered.length) renderChunk();
 }, { rootMargin: "1400px" }).observe(sentinel);
+
+/* ---------- labels (right-click) ---------- */
+const SUGGESTED_TAGS = ["alien", "superexposed", "duplicate", "corrupted", "mislabelled"];
+const LOCAL_KEY = "galaxy-gallery-annotations";
+let annotations = {};      // image id -> array of labels (loaded from the server, mirrored to localStorage)
+let apiAlive = true;       // false when no /api backend (e.g. served by a plain http.server)
+
+const tagsOf = (id) => (annotations[id] || (annotations[id] = []));
+
+function scheduleSave() {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(annotations));
+  setStatus("saving…");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 500);
+}
+
+async function flushSave() {
+  clearTimeout(saveTimer);
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(annotations));
+  if (!apiAlive) return;
+  try {
+    const res = await fetch("/api/annotations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(annotations),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    setStatus(`${countTagged()} tagged · saved`);
+  } catch (err) {
+    console.error(err);
+    apiAlive = false;
+    setStatus("saved in browser only (no server)");
+  }
+}
+
+/* tag editor dialog */
+let annId = null;
+
+function openTagEditor(id) {
+  annId = id;
+  const m = manifest.find((x) => x.id === id);
+  $("#ann-img").src = imgSrc(m);
+  $("#ann-title").textContent = `${id} · ${m.split}${m.label === null ? "" : ", class " + m.label}`;
+  renderTagChips();
+  refreshSuggestions();
+  $("#ann-input").value = "";
+  $("#ann").classList.add("open");
+  $("#ann-input").focus();
+}
+
+function renderTagChips() {
+  const box = $("#ann-tags");
+  box.innerHTML = "";
+  for (const t of annotations[annId] || []) {
+    const chip = document.createElement("span");
+    chip.className = "tag";
+    chip.textContent = t;
+    const rm = document.createElement("button");
+    rm.textContent = "✕";
+    rm.title = "remove label";
+    rm.onclick = () => removeTag(t);
+    chip.appendChild(rm);
+    box.appendChild(chip);
+  }
+}
+
+function addTag() {
+  const text = $("#ann-input").value.trim().toLowerCase();
+  if (!text || !annId) return;
+  if (!tagsOf(annId).includes(text)) {
+    tagsOf(annId).push(text);
+    scheduleSave();
+    renderTagChips();
+  }
+  $("#ann-input").value = "";
+  refreshSuggestions();
+  $("#ann-input").focus();
+}
+
+function removeTag(t) {
+  if (!annId) return;
+  const tags = (annotations[annId] || []).filter((x) => x !== t);
+  if (tags.length > 0) annotations[annId] = tags;
+  else delete annotations[annId];
+  scheduleSave();
+  renderTagChips();
+}
+
+function usedTags() {
+  const s = new Set();
+  for (const tags of Object.values(annotations)) tags.forEach((t) => s.add(t));
+  return [...s].sort();
+}
+
+function refreshSuggestions() {
+  $("#ann-suggestions").innerHTML =
+    [...new Set([...SUGGESTED_TAGS, ...usedTags()])].map((t) => `<option value="${esc(t)}">`).join("");
+}
+
+$("#ann-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addTag(); });
+$("#ann-add").onclick = addTag;
+$("#ann-done").onclick = () => { flushSave(); closeTagEditor(); };
+$("#ann").addEventListener("click", (e) => { if (e.target === $("#ann")) { flushSave(); closeTagEditor(); } });
+
+/* right-click to label, from both the grid and the lightbox */
+grid.addEventListener("contextmenu", (e) => {
+  const t = e.target.closest(".tile");
+  if (!t) return;
+  e.preventDefault();
+  openTagEditor(manifest[filtered[+t.dataset.i]].id);
+});
+lb.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  if (lbIndex >= 0 && filtered.length > 0) openTagEditor(manifest[filtered[lbIndex]].id);
+});
+
+/* merge saved server annotations with any newer local edits on boot */
+async function loadAnnotations() {
+  try {
+    const res = await fetch("/api/annotations");
+    if (res.ok) annotations = await res.json();
+    else apiAlive = false;
+  } catch { apiAlive = false; }
+  try {
+    for (const [id, tags] of Object.entries(JSON.parse(localStorage.getItem(LOCAL_KEY) || "{}")))
+      unionTags(id, tags);
+  } catch {}
+  setStatus(`${countTagged()} tagged`);
+}
 
 /* ---------- boot ---------- */
 (async () => {
@@ -301,6 +556,7 @@ new IntersectionObserver((entries) => {
       if (r.ok) { datasetRoot = c; break; }
     } catch {}
   }
+  await loadAnnotations();
   buildChips();
   applyFilters();
 })();

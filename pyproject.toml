@@ -19,6 +19,8 @@ dependencies = [
 [project.scripts]
 download-dataset = "data.download:main"
 build-gallery = "data.gallery.build_manifest:main"
+serve-gallery = "data.gallery.serve:main"
+apply-annotations = "data.gallery.apply_annotations:main"
 
 [build-system]
 requires = ["uv_build>=0.13.9,<0.14.0"]
