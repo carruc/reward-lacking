@@ -144,6 +144,28 @@
     font-weight: 600;
     white-space: nowrap;
   }
+  .tile-tags {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    pointer-events: none; /* clicks fall through to the tile */
+    z-index: 2;
+  }
+  .tile-tag {
+    background: color-mix(in srgb, var(--accent) 82%, #000 18%);
+    color: #fff;
+    border-radius: 999px;
+    padding: 1.5px 7px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    white-space: nowrap;
+    border: 1px solid rgba(255, 255, 255, .25);
+  }
   #lb .lb-tags {
     color: var(--dim);
   }
@@ -243,7 +265,7 @@
 <body>
 <header>
   <div class="row">
-    <h1 title="Right-click an image to edit its labels.">Galaxy10 DECaLS <span>browse</span></h1>
+    <h1 title="Right-click toggles the 'alien' tag on an image; Shift+right-click opens the full label editor.">Galaxy10 DECaLS <span>browse</span></h1>
     <input id="q" type="text" placeholder="filter by id (e.g. 0123)" spellcheck="false">
     <span class="chips" id="splitChips"></span>
     <select id="sort" title="order">
@@ -360,15 +382,16 @@ function renderChunk() {
   for (; rendered < end; rendered++) {
     const m = manifest[filtered[rendered]];
     const tags = annotations[m.id] || [];
-    const ann = tags.length > 0
-      ? `<span class="tag-count" title="labels: ${esc(tags.join(", "))}">&#x1f3f7;${tags.length}</span>`
+    const chips = tags.length > 0
+      ? `<div class="tile-tags">${tags.map((t) => `<span class="tile-tag">${esc(t)}</span>`).join("")}</div>`
       : "";
     const tag = m.label === null
       ? `<span class="cls"></span><span class="sp">test</span>`
       : `<span class="cls" style="color:${color(m.label)}">${m.label} · ${CLASSES[m.label] ?? "?"}</span><span class="sp">train</span>`;
     html += `<div class="tile ${m.label === null ? "test" : ""}" data-i="${rendered}" title="${esc(`${m.id} — ${clsName(m.label)}${tags.length ? " · labels: " + tags.join(", ") : ""}`)}">
                <img loading="lazy" decoding="async" src="${imgSrc(m)}" alt="${m.id}">
-               <div class="tag">${tag}${ann}</div>
+               ${chips}
+               <div class="tag">${tag}</div>
              </div>`;
   }
   grid.insertAdjacentHTML("beforeend", html);
@@ -586,15 +609,33 @@ $("#ann-done").onclick = () => { flushSave(); closeTagEditor(); };
 $("#ann").addEventListener("click", (e) => { if (e.target === $("#ann")) { flushSave(); closeTagEditor(); } });
 
 /* right-click to label, from both the grid and the lightbox */
+const QUICK_TAG = "alien"; // toggled with a plain right-click
+
+const hasQuickTag = (id) => (annotations[id] ? annotations[id].includes(QUICK_TAG) : false);
+
+function toggleQuickTag(id) {
+  const tags = annotations[id];
+  if (tags && tags.includes(QUICK_TAG)) {
+    const rest = tags.filter((t) => t !== QUICK_TAG);
+    if (rest.length > 0) annotations[id] = rest;
+    else delete annotations[id];
+  } else {
+    tags.push(QUICK_TAG);
+  }
+  scheduleSave();
+  applyTags();
+}
+
 grid.addEventListener("contextmenu", (e) => {
   const t = e.target.closest(".tile");
   if (!t) return;
   e.preventDefault();
-  openTagEditor(manifest[filtered[+t.dataset.i]].id);
+  toggleQuickTag(manifest[filtered[+t.dataset.i]].id);
 });
 lb.addEventListener("contextmenu", (e) => {
   e.preventDefault();
-  if (lbIndex >= 0 && filtered.length > 0) openTagEditor(manifest[filtered[lbIndex]].id);
+  if (!(lbIndex >= 0 && filtered.length > 0)) return;
+  toggleQuickTag(manifest[filtered[lbIndex]].id);
 });
 
 /* merge saved server annotations with any newer local edits on boot */

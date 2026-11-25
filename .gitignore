@@ -33,3 +33,4 @@ Thumbs.db
 /artifacts/**
 !/artifacts/**/
 !/artifacts/**/.gitkeep
+data/gallery/annotations.json
