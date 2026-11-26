@@ -275,6 +275,7 @@
   <div class="row">
     <h1 title="Right-click toggles the 'alien' tag on an image; Shift+right-click opens the full label editor.">Galaxy10 DECaLS <span>browse</span> <span class="hdr-count" id="hdr-count"></span></h1>
     <input id="q" type="text" placeholder="filter by id (e.g. 0123)" spellcheck="false">
+    <span class="chips" id="tagChips" title="filter by the 'alien' label"></span>
     <span class="chips" id="splitChips"></span>
     <select id="sort" title="order">
       <option value="id">id ↑</option>
@@ -351,7 +352,7 @@ const PAGE = 120; // tiles rendered per chunk
 let manifest = [];          // [{id, split, label}]
 let filtered = [];          // indexes into manifest
 let rendered = 0;
-let state = { cls: "all", split: "all", q: "", sort: "id" };
+let state = { cls: "all", split: "all", tag: "all", q: "", sort: "id" };
 let datasetRoot = null;     // resolved at boot (/api/dataset-root first, then probing)
 let triedRoots = [];
 
@@ -369,6 +370,8 @@ function applyFilters() {
   const out = [];
   for (let i = 0; i < manifest.length; i++) {
     const m = manifest[i];
+    if (state.tag === "alien" && !hasTag(m.id, QUICK_TAG)) continue;
+    if (state.tag === "not-alien" && hasTag(m.id, QUICK_TAG)) continue;
     if (state.split !== "all" && m.split !== state.split) continue;
     if (state.cls !== "all" && m.label !== state.cls) continue; // test items have no label -> excluded
     if (q && !m.id.includes(q)) continue;
@@ -456,6 +459,7 @@ function syncChips() {
     b.classList.toggle("on", String(state.cls) === b.dataset.cls));
   document.querySelectorAll("#splitChips .chip").forEach(b =>
     b.classList.toggle("on", state.split === b.dataset.split));
+  syncTagChips();
 }
 
 let debounce;
@@ -525,8 +529,35 @@ const setStatus = (text) => {
   const n = countTagged();
   $("#hdr-count").textContent = n > 0 ? `· ${n} tagged` : "";
   document.title = n > 0 ? `Galaxy10 DECaLS gallery — ${n} tagged` : "Galaxy10 DECaLS gallery";
+  buildTagChips(); // refresh alien/not-alien counts
 };
 const countTagged = () => Object.values(annotations).filter((tags) => tags.length > 0).length;
+
+/* alien / not-alien filter chips; counts follow the current annotations */
+function buildTagChips() {
+  const sc = $("#tagChips");
+  sc.innerHTML = "";
+  const nAlien = manifest.filter((m) => hasTag(m.id, QUICK_TAG)).length;
+  const opts = [["all", "any tag", manifest.length],
+                ["alien", "alien", nAlien],
+                ["not-alien", "not alien", manifest.length - nAlien]];
+  for (const [val, label, n] of opts) {
+    const b = document.createElement("button");
+    b.className = "chip"; b.dataset.tag = val;
+    if (state.tag === val) b.classList.add("on");
+    b.innerHTML = `${label} <small>${n.toLocaleString()}</small>`;
+    b.onclick = () => {
+      state.tag = state.tag === val ? "all" : val; // re-click returns to "any tag"
+      syncTagChips(); applyFilters();
+    };
+    sc.appendChild(b);
+  }
+}
+
+function syncTagChips() {
+  document.querySelectorAll("#tagChips .chip").forEach((b) =>
+    b.classList.toggle("on", state.tag === b.dataset.tag));
+}
 
 /** Merge server-stored labels with any newer local edits. */
 function unionTags(id, tags) {
@@ -536,7 +567,7 @@ function unionTags(id, tags) {
 function closeTagEditor() {
   $("#ann").classList.remove("open");
   annId = null;
-  applyFilters(); // refresh the label badges
+  applyFilters(); // refresh the tag badges and the alien/not-alien view
 }
 
 function scheduleSave() {
@@ -637,7 +668,9 @@ $("#ann").addEventListener("click", (e) => { if (e.target === $("#ann")) { flush
 /* right-click to label, from both the grid and the lightbox */
 const QUICK_TAG = "alien"; // toggled with a plain right-click
 
-const hasQuickTag = (id) => (annotations[id] ? annotations[id].includes(QUICK_TAG) : false);
+const hasTag = (id, tag) => (annotations[id] ? annotations[id].includes(tag) : false);
+
+const hasQuickTag = (id) => hasTag(id, QUICK_TAG);
 
 function toggleQuickTag(id) {
   const tags = annotations[id];
@@ -649,7 +682,7 @@ function toggleQuickTag(id) {
     tags.push(QUICK_TAG);
   }
   scheduleSave();
-  applyTags();
+  applyFilters();
 }
 
 grid.addEventListener("contextmenu", (e) => {
