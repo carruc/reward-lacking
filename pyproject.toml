@@ -15,6 +15,7 @@ dependencies = [
     "pillow>=13.0.0",
     "scikit-learn>=1.6.0",
     "seaborn>=0.13.2",
+    "timm>=1.0.31",
     "torch>=2.6.0",
     "torchvision>=0.21.0",
     "tqdm>=4.67.0",
@@ -28,6 +29,9 @@ apply-annotations = "data.gallery.apply_annotations:main"
 clean-dataset = "data.cleaning:main"
 train-model = "model.train:main"
 run-fold0-queue = "model.run_queue:main"
+train-dinov2 = "model.dinov2:main"
+build-clusters = "data.gallery.build_clusters:main"
+eval-overlap = "eval.embedding_overlap:main"
 
 [[tool.uv.index]]
 name = "pytorch-cu128"

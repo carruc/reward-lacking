@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Galaxy10 DECaLS gallery</title>
+<link rel="stylesheet" href="clusters.css?v=3">
 <style>
   :root {
     --tile: 168px;      /* controlled by the size slider */
@@ -20,14 +21,14 @@
     font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   header {
-    position: sticky; top: 0; z-index: 5;
-    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    position: sticky; top: 0; z-index: 25;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter: blur(6px);
     border-bottom: 1px solid var(--line);
-    padding: 10px 16px;
+    padding: 9px 16px;
   }
   .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  h1 { font-size: 15px; margin: 0 10px 0 0; font-weight: 600; letter-spacing: .2px; }
+  h1 { font-size: 15px; margin: 0 6px 0 0; font-weight: 600; letter-spacing: .2px; }
   h1 span { color: var(--dim); font-weight: 400; }
   h1 .hdr-count { color: var(--accent); font-weight: 600; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -51,28 +52,17 @@
   }
   input[type=range] { accent-color: var(--accent); }
   .count { color: var(--dim); font-size: 12.5px; margin-left: auto; white-space: nowrap; }
-  main {
-  padding: 14px 16px 60vh; /* bottom padding keeps sentinel reachable past last row */
-}
-#boot-error {
-  max-width: 760px;
-  margin: 4px auto 16px;
-  padding: 10px 14px;
-  border: 1px solid #b3564d;
-  border-radius: 8px;
-  background: #2a1717;
-  color: #f2c4bd;
-  font-size: 13px;
-  line-height: 1.55;
-}
-#boot-error code {
-  color: #fff;
-  background: none;
-  padding: 0;
-}
-#boot-error strong {
-  color: #ff9d8f;
-}
+  main#gallery-view {
+    padding: 14px 16px 60vh; /* bottom padding keeps sentinel reachable past last row */
+  }
+  #boot-error {
+    max-width: 760px; margin: 4px auto 16px; padding: 12px 16px;
+    border: 1px solid #b3564d; border-radius: 8px;
+    background: #2a1717; color: #f2c4bd;
+    font-size: 13px; line-height: 1.55;
+  }
+  #boot-error code { color: #fff; background: none; padding: 0; }
+  #boot-error strong { color: #ff9d8f; }
   #grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr)); gap: 8px;
   }
@@ -92,41 +82,15 @@
   .tile.test img { opacity: .82; }
   #sentinel { height: 10px; }
   #empty { color: var(--dim); padding: 40px 0; text-align: center; }
-  #boot-error {
-    max-width: 760px;
-    margin: 4px auto 16px;
-    padding: 12px 16px;
-    border: 1px solid #b3564d;
-    border-radius: 8px;
-    background: #2a1717;
-    color: #f2c4bd;
-    font-size: 13px;
-    line-height: 1.55;
-  }
-  #boot-error code {
-    color: #fff;
-    background: none;
-    padding: 0;
-  }
-  #boot-error strong {
-    color: #ff9d8f;
-  }
-  #boot-error {
-    max-width: 760px; margin: 4px auto 16px; padding: 12px 16px;
-    border: 1px solid #b3564d; border-radius: 8px;
-    background: #2a1717; color: #f2c4bd;
-    font-size: 13px; line-height: 1.55;
-  }
-  #boot-error code { color: #fff; background: none; padding: 0; }
-  #boot-error strong { color: #ff9d8f; }
+
   /* lightbox */
   #lb {
     position: fixed; inset: 0; z-index: 50; display: none;
     background: rgba(0,0,0,.92); align-items: center; justify-content: center; flex-direction: column;
   }
   #lb.open { display: flex; }
-  #lb img { max-width: min(92vw, 720px); max-height: 78vh; border-radius: 4px; }
-  #lb .meta { margin-top: 12px; font-size: 14px; color: var(--fg); text-align: center; }
+  #lb img { max-width: min(92vw, 720px); max-height: 76vh; border-radius: 4px; }
+  #lb .meta { margin-top: 12px; font-size: 14px; color: var(--fg); text-align: center; line-height: 1.45; }
   #lb .meta .cls { font-weight: 700; }
   #lb .hint { margin-top: 6px; color: var(--dim); font-size: 12px; }
   #lb .nav {
@@ -175,7 +139,8 @@
   #mode-bar input[type=text] { width: 130px; }
   #mode-bar .wb-hint { color: var(--dim); font-size: 12px; margin-right: 4px; }
   #lb .lb-tags {
-    color: var(--dim);
+    color: var(--accent);
+    font-size: 12.5px;
   }
   #ann {
     position: fixed;
@@ -271,51 +236,237 @@
 </style>
 </head>
 <body>
-<header>
+<header id="app-header">
   <div class="row">
-    <h1 title="Right-click toggles the 'alien' tag on an image; Shift+right-click opens the full label editor.">Galaxy10 DECaLS <span>browse</span> <span class="hdr-count" id="hdr-count"></span></h1>
-    <input id="q" type="text" placeholder="filter by id (e.g. 0123)" spellcheck="false">
-    <span class="chips" id="tagChips" title="filter by the 'alien' label"></span>
-    <span class="chips" id="splitChips"></span>
-    <select id="sort" title="order">
-      <option value="id">id ↑</option>
-      <option value="iddesc">id ↓</option>
-      <option value="class">class</option>
-    </select>
-    <button class="chip" id="shuffle" title="Shuffle the current view">&#x1f500; shuffle</button>
-    <label class="chip" title="thumbnail size">size <input id="size" type="range" min="110" max="320" value="168" step="10"></label>
-    <button class="chip" id="label-mode-btn" title="Batch labelling: click images to select them, then apply a label to all">&#x1f3f7; label mode</button>
+    <h1 title="Right-click toggles the 'alien' tag on an image; Shift+right-click opens the full label editor.">
+      Galaxy10 DECaLS <span id="hdr-sub">browse</span> <span class="hdr-count" id="hdr-count"></span>
+    </h1>
+    <div class="view-tabs" role="tablist" aria-label="Workspace view">
+      <button class="view-tab on" data-view="gallery" role="tab" aria-selected="true">Gallery</button>
+      <button class="view-tab" data-view="clusters" role="tab" aria-selected="false">Clusters</button>
+    </div>
+    <span class="subset-pill" id="subset-pill" hidden>
+      <span id="subset-label"></span>
+      <button id="subset-clear" title="Clear cluster/lasso subset filter">&#x2715;</button>
+    </span>
+    <span class="row" id="gallery-controls-inline">
+      <input id="q" type="text" placeholder="filter by id (e.g. 0123)" spellcheck="false">
+      <span class="chips" id="tagChips" title="filter by the 'alien' label"></span>
+      <span class="chips" id="splitChips"></span>
+      <select id="sort" title="order">
+        <option value="id">id ↑</option>
+        <option value="iddesc">id ↓</option>
+        <option value="class">class</option>
+      </select>
+      <button class="chip" id="shuffle" title="Shuffle the current view">&#x1f500; shuffle</button>
+      <label class="chip" title="thumbnail size">size <input id="size" type="range" min="110" max="320" value="168" step="10"></label>
+      <button class="chip" id="label-mode-btn" title="Batch labelling: click images to select them, then apply a label to all">&#x1f3f7; label mode</button>
+    </span>
     <button class="chip" id="save-annotations" title="Save labels to data/gallery/annotations.json">&#x1f3f7; save</button>
     <button class="chip" id="apply-annotations" title="Merge saved labels into artifacts/dataset/train.csv (extra_labels column)">&#x2192; train.csv</button>
     <span class="count" id="count"></span>
     <span class="count" id="save-status"></span>
   </div>
-  <div class="row" style="margin-top:8px">
-    <span class="chips" id="classChips"></span>
-  </div>
-  <div class="row" id="mode-bar" hidden>
-    <button class="chip" id="mode-exit" title="Exit label mode">&#x2190; exit</button>
-    <span class="wb-hint">click images to select</span>
-    <input id="mode-tag" type="text" value="alien" placeholder="label" spellcheck="false">
-    <button class="chip" id="sel-all" title="Select every currently visible (filtered) image">select all shown</button>
-    <button class="chip" id="sel-clear" title="Deselect everything">clear</button>
-    <button class="chip" id="mode-apply" title="Add the label above to all selected images">apply &#x2192; selected</button>
-    <span class="count" id="sel-count"></span>
+  <div id="gallery-filter-rows">
+    <div class="row" style="margin-top:8px">
+      <span class="chips" id="classChips"></span>
+    </div>
+    <div class="row" id="mode-bar" style="margin-top:8px" hidden>
+      <button class="chip" id="mode-exit" title="Exit label mode">&#x2190; exit</button>
+      <span class="wb-hint">click images to select</span>
+      <input id="mode-tag" type="text" value="alien" placeholder="label" spellcheck="false">
+      <button class="chip" id="sel-all" title="Select every currently visible (filtered) image">select all shown</button>
+      <button class="chip" id="sel-clear" title="Deselect everything">clear</button>
+      <button class="chip" id="mode-apply" title="Add the label above to all selected images">apply &#x2192; selected</button>
+      <span class="count" id="sel-count"></span>
+    </div>
   </div>
 </header>
 
-<main>
+<main id="gallery-view">
   <div id="boot-error" hidden></div>
   <div id="grid"></div>
   <div id="empty" hidden>No images match the current filters.</div>
   <div id="sentinel"></div>
 </main>
 
+<section id="clusters-view" hidden>
+  <div class="cl-toolbar">
+    <div class="cl-group">
+      <span class="cl-label">Space</span>
+      <div class="cl-pill-group" id="cl-space-pills"></div>
+    </div>
+    <div class="cl-sep"></div>
+    <div class="cl-group">
+      <label class="cl-label" for="cl-color-by">Color</label>
+      <select id="cl-color-by">
+        <option value="cluster">HDBSCAN Cluster</option>
+        <option value="true_class">True Class (train)</option>
+        <option value="pred_class">Predicted Class</option>
+        <option value="status">Split / Status</option>
+        <option value="conf">Confidence</option>
+        <option value="error">Prediction Errors</option>
+        <option value="sky_med">Sky Median</option>
+        <option value="tag_alien">Tag: alien</option>
+        <option value="overlap">Cross-Model k-NN Overlap</option>
+      </select>
+    </div>
+    <div class="cl-group">
+      <span class="cl-label">Show</span>
+      <div class="cl-pill-group" id="cl-split-pills"></div>
+    </div>
+    <div class="cl-group">
+      <select id="cl-class-filter" title="Filter by class (true class on train, predicted class on test)">
+        <option value="all">All classes</option>
+      </select>
+    </div>
+    <div class="cl-sep"></div>
+    <div class="cl-group">
+      <button class="cl-chip on" id="cl-tool-pan" title="Drag to pan, click to inspect, Shift+Drag for lasso">Pan</button>
+      <button class="cl-chip" id="cl-tool-lasso" title="Drag a freehand lasso to select a region">Lasso</button>
+      <button class="cl-chip on" id="cl-toggle-labels" title="Show HDBSCAN cluster labels on map">Labels</button>
+      <button class="cl-chip on" id="cl-toggle-thumbs" title="Show galaxy thumbnails when zoomed in">Thumbs</button>
+      <label class="cl-chip" title="Scatter dot size">dot <input id="cl-pt-size" type="range" min="2" max="9" value="4" step="0.5"></label>
+      <button class="cl-chip" id="cl-reset-view" title="Reset pan and zoom">Reset</button>
+    </div>
+    <div class="cl-group cl-pop-wrap" style="margin-left:auto">
+      <button class="cl-chip" id="cl-toggle-sidebar" title="Toggle cluster sidebar">Clusters panel</button>
+      <button class="cl-chip" id="cl-overlap-btn" title="View cross-model CKA and k-NN neighborhood overlap">Overlap</button>
+      <button class="cl-chip" id="cl-hdb-btn" title="Tune HDBSCAN parameters and re-cluster live">HDBSCAN &#x2699;</button>
+      <div class="cl-popover" id="cl-hdb-popover" hidden>
+        <h3>
+          <span>HDBSCAN Live Clustering</span>
+          <button class="cl-icon-btn" id="cl-hdb-close" title="Close">&#x2715;</button>
+        </h3>
+        <div class="cl-pop-row">
+          <label for="cl-hdb-on">Cluster on</label>
+          <select id="cl-hdb-on">
+            <option value="2d">2D t-SNE map</option>
+            <option value="pca">High-D PCA-15</option>
+          </select>
+        </div>
+        <div class="cl-pop-row">
+          <label for="cl-hdb-scope">Scope</label>
+          <select id="cl-hdb-scope">
+            <option value="all">All (train + test)</option>
+            <option value="train">Train only</option>
+            <option value="clean">Clean train only</option>
+            <option value="test">Test only</option>
+          </select>
+        </div>
+        <div class="cl-pop-row">
+          <label for="cl-hdb-mcs">min_cluster_size</label>
+          <input id="cl-hdb-mcs" type="number" min="5" max="2000" value="80" step="5">
+        </div>
+        <div class="cl-pop-row">
+          <label for="cl-hdb-ms">min_samples</label>
+          <input id="cl-hdb-ms" type="number" min="1" max="500" value="15" step="1">
+        </div>
+        <div class="cl-pop-row">
+          <label for="cl-hdb-maxcs">max_cluster_size</label>
+          <input id="cl-hdb-maxcs" type="number" min="0" max="20000" value="3000" step="250" title="0 = unlimited">
+        </div>
+        <div class="cl-pop-row">
+          <label for="cl-hdb-method">Method</label>
+          <select id="cl-hdb-method">
+            <option value="eom">EOM (broad)</option>
+            <option value="leaf">Leaf (fine-grained)</option>
+          </select>
+        </div>
+        <div class="cl-pop-status" id="cl-hdb-status"></div>
+        <div class="cl-pop-actions">
+          <button class="cl-chip" id="cl-hdb-default">Defaults</button>
+          <button class="cl-chip on" id="cl-hdb-run">Recluster</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cl-body">
+    <aside id="cl-sidebar">
+      <div class="cl-side-head">
+        <div class="cl-side-stats" id="cl-side-stats">Loading…</div>
+        <select id="cl-cluster-sort" title="Sort cluster cards">
+          <option value="size">Size ↓</option>
+          <option value="dropped">Anomalies ↓</option>
+          <option value="test_frac">Test share ↓</option>
+          <option value="purity_asc">Purity ↑</option>
+          <option value="conf_asc">Confidence ↑</option>
+        </select>
+      </div>
+      <div id="cl-cluster-list"></div>
+    </aside>
+
+    <div id="cl-stage">
+      <canvas id="cl-canvas"></canvas>
+      <div id="cl-hover" hidden>
+        <div class="cl-hover-top">
+          <img id="cl-hover-img" alt="">
+          <div>
+            <div class="cl-hover-id" id="cl-hover-id"></div>
+            <span class="cl-hover-status" id="cl-hover-status"></span>
+          </div>
+        </div>
+        <div class="cl-hover-rows" id="cl-hover-rows"></div>
+        <div class="cl-hover-tags" id="cl-hover-tags"></div>
+      </div>
+      <div id="cl-legend"></div>
+      <div id="cl-hud"></div>
+      <div id="cl-overlay" hidden>
+        <div class="cl-overlay-card" id="cl-overlay-card"></div>
+      </div>
+    </div>
+
+    <aside id="cl-inspector" hidden>
+      <div class="cl-insp-head">
+        <div>
+          <h2 id="cl-insp-title">Selection</h2>
+          <div class="cl-insp-sub" id="cl-insp-sub"></div>
+        </div>
+        <button class="cl-icon-btn" id="cl-insp-close" title="Close inspector">&#x2715;</button>
+      </div>
+      <div class="cl-insp-summary" id="cl-insp-summary"></div>
+      <div class="cl-insp-grid-bar">
+        <span id="cl-insp-grid-count"></span>
+        <select id="cl-insp-sort" title="Sort inspected samples">
+          <option value="rep">Representative</option>
+          <option value="conf_asc">Confidence ↑</option>
+          <option value="conf_desc">Confidence ↓</option>
+          <option value="errors">Errors first</option>
+          <option value="test_first">Test first</option>
+          <option value="train_first">Train first</option>
+          <option value="id">ID ↑</option>
+        </select>
+      </div>
+      <div id="cl-insp-scroll">
+        <div id="cl-insp-grid"></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<div id="cl-overlap-modal" role="dialog" aria-modal="true" hidden>
+  <div class="cl-modal-panel">
+    <div class="cl-modal-head">
+      <div>
+        <h2>Cross-Model Embedding Overlap</h2>
+        <div class="cl-insp-sub" id="cl-ov-subtitle">Exact k-NN shared neighborhoods &amp; CKA relational similarity</div>
+      </div>
+      <button class="cl-icon-btn" id="cl-ov-close" title="Close">&#x2715;</button>
+    </div>
+    <div class="cl-modal-body" id="cl-ov-body"></div>
+    <div class="cl-modal-foot">
+      <button class="cl-chip on" id="cl-ov-color-btn">Color map by k-NN overlap</button>
+      <button class="cl-chip" id="cl-ov-done">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="lb" role="dialog" aria-modal="true">
   <button class="nav prev" aria-label="previous">&#x2039;</button>
   <img id="lbImg" alt="">
   <div class="meta" id="lbMeta"></div>
-  <div class="hint">← → to move, Esc to close</div>
+  <div class="hint">← → to move, right-click to toggle alien, Shift+right-click for labels, Esc to close</div>
   <button class="nav next" aria-label="next">&#x203a;</button>
   <button class="close" aria-label="close">&#x2715;</button>
 </div>
@@ -350,26 +501,92 @@ const CLASS_COLOR = ["#e05c5c","#e08b3c","#e6c74a","#7ac74a","#4fc98e",
 const PAGE = 120; // tiles rendered per chunk
 
 let manifest = [];          // [{id, split, label}]
+let manifestById = new Map();
 let filtered = [];          // indexes into manifest
 let rendered = 0;
-let state = { cls: "all", split: "all", tag: "all", q: "", sort: "id" };
+let state = { cls: "all", split: "all", tag: "all", q: "", sort: "id", subsetIds: null, subsetLabel: "" };
 let datasetRoot = null;     // resolved at boot (/api/dataset-root first, then probing)
 let triedRoots = [];
+let currentView = "gallery";
+let bootReady = false;
+const bootReadyCallbacks = [];
+const annotationListeners = [];
 
 const $ = (s) => document.querySelector(s);
 const grid = $("#grid"), sentinel = $("#sentinel"), lb = $("#lb");
 let lbIndex = -1;
+let lbItems = null;
+let lbExtraMetaFn = null;
 
 const imgSrc = (m) => `${datasetRoot}/${m.split}/${m.id}.png`;
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-const clsName = (l) => l === null ? "unlabelled" : `class ${l}: ${CLASSES[l] ?? "?"}`;
+const clsName = (l) => l === null || l === undefined ? "unlabelled" : `class ${l}: ${CLASSES[l] ?? "?"}`;
+
+function updateHeaderHeightVar() {
+  const hdr = $("#app-header");
+  if (hdr) document.documentElement.style.setProperty("--hdr-h", hdr.offsetHeight + "px");
+}
+if (typeof ResizeObserver !== "undefined") {
+  new ResizeObserver(updateHeaderHeightVar).observe($("#app-header"));
+}
+window.addEventListener("resize", updateHeaderHeightVar);
+
+function setView(view, updateHash = true) {
+  currentView = view === "clusters" ? "clusters" : "gallery";
+  const isClusters = currentView === "clusters";
+  $("#gallery-view").hidden = isClusters;
+  $("#gallery-controls-inline").hidden = isClusters;
+  $("#gallery-filter-rows").hidden = isClusters;
+  $("#clusters-view").hidden = !isClusters;
+  $("#count").hidden = isClusters;
+  $("#hdr-sub").textContent = isClusters ? "clusters" : "browse";
+  document.body.classList.toggle("clusters-active", isClusters);
+  document.querySelectorAll(".view-tab").forEach((b) => {
+    const on = b.dataset.view === currentView;
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  if (updateHash) {
+    const targetHash = isClusters ? "#clusters" : "#gallery";
+    if (location.hash !== targetHash) history.replaceState(null, "", targetHash);
+  }
+  updateHeaderHeightVar();
+  if (isClusters && window.ClustersView) {
+    window.ClustersView.activate();
+  }
+}
+
+document.querySelectorAll(".view-tab").forEach((b) => {
+  b.addEventListener("click", () => setView(b.dataset.view));
+});
+window.addEventListener("hashchange", () => {
+  if (location.hash === "#clusters") setView("clusters", false);
+  else if (location.hash === "#gallery") setView("gallery", false);
+});
+
+function setSubsetFilter(ids, label) {
+  if (!ids || ids.length === 0) {
+    state.subsetIds = null;
+    state.subsetLabel = "";
+    $("#subset-pill").hidden = true;
+  } else {
+    state.subsetIds = new Set(ids);
+    state.subsetLabel = label || `${ids.length} selected`;
+    $("#subset-label").textContent = state.subsetLabel;
+    $("#subset-pill").hidden = false;
+  }
+  applyFilters();
+}
+$("#subset-clear").onclick = () => setSubsetFilter(null, "");
 
 /* ---------- filtering ---------- */
 function applyFilters() {
   const q = state.q;
+  const sub = state.subsetIds;
   const out = [];
   for (let i = 0; i < manifest.length; i++) {
     const m = manifest[i];
+    if (sub && !sub.has(m.id)) continue;
     if (state.tag === "alien" && !hasTag(m.id, QUICK_TAG)) continue;
     if (state.tag === "not-alien" && hasTag(m.id, QUICK_TAG)) continue;
     if (state.split !== "all" && m.split !== state.split) continue;
@@ -418,7 +635,7 @@ function renderChunk() {
   grid.insertAdjacentHTML("beforeend", html);
 }
 
-const color = (l) => `hsl(${(l * 36 + 10) % 360} 62% 62%)`;
+const color = (l) => CLASS_COLOR[l] || `hsl(${(l * 36 + 10) % 360} 62% 62%)`;
 
 /* ---------- controls ---------- */
 function buildChips() {
@@ -479,31 +696,56 @@ $("#size").addEventListener("input", (e) =>
   document.documentElement.style.setProperty("--tile", e.target.value + "px"));
 
 /* ---------- lightbox ---------- */
-function openLightbox(i) {
-  lbIndex = i;
-  const m = manifest[filtered[i]];
+function currentLbItems() {
+  return lbItems || filtered.map((idx) => manifest[idx]);
+}
+
+function openLightbox(i, itemsOverride = null, extraMetaFn = null) {
+  if (itemsOverride !== null) lbItems = itemsOverride;
+  else if (arguments.length === 1 && !lb.classList.contains("open")) lbItems = null;
+  if (extraMetaFn !== null || !lb.classList.contains("open")) {
+    lbExtraMetaFn = extraMetaFn || (itemsOverride === null ? null : lbExtraMetaFn);
+  }
+  const items = currentLbItems();
+  if (!items.length) return;
+  lbIndex = ((i % items.length) + items.length) % items.length;
+  const m = items[lbIndex];
   $("#lbImg").src = imgSrc(m);
+  const tags = annotations[m.id] || [];
+  const tagsLine = tags.length ? `<br><span class="lb-tags">tags: ${tags.map(esc).join(", ")}</span>` : "";
+  const extraLine = lbExtraMetaFn ? `<br><span style="color:var(--dim);font-size:12.5px">${lbExtraMetaFn(m)}</span>` : "";
   $("#lbMeta").innerHTML =
     `<span class="cls" style="color:${m.label === null ? "var(--dim)" : color(m.label)}">
-       ${m.id}.png</span><br>${clsName(m.label)} · ${m.split}`;
+       ${esc(m.id)}.png</span> · ${lbIndex + 1}/${items.length}<br>${esc(clsName(m.label))} · ${esc(m.split)}${extraLine}${tagsLine}`;
   lb.classList.add("open");
 }
-const move = (d) => lb.classList.contains("open") && filtered.length &&
-  openLightbox((lbIndex + d + filtered.length) % filtered.length);
+
+function closeLightbox() {
+  lb.classList.remove("open");
+  lbItems = null;
+  lbExtraMetaFn = null;
+}
+
+const move = (d) => {
+  const items = currentLbItems();
+  if (lb.classList.contains("open") && items.length) {
+    openLightbox((lbIndex + d + items.length) % items.length, lbItems, lbExtraMetaFn);
+  }
+};
 
 grid.addEventListener("click", (e) => {
   const t = e.target.closest(".tile");
   if (!t) return;
   if (labelMode) { toggleSel(manifest[filtered[+t.dataset.i]].id); return; }
-  openLightbox(+t.dataset.i);
+  openLightbox(+t.dataset.i, null, null);
 });
-$(".close").onclick = () => lb.classList.remove("open");
+$(".close").onclick = closeLightbox;
 $(".prev").onclick = () => move(-1);
 $(".next").onclick = () => move(1);
-lb.addEventListener("click", (e) => { if (e.target === lb) lb.classList.remove("open"); });
+lb.addEventListener("click", (e) => { if (e.target === lb) closeLightbox(); });
 document.addEventListener("keydown", (e) => {
   if (!lb.classList.contains("open") || $("#ann").classList.contains("open")) return;
-  if (e.key === "Escape") lb.classList.remove("open");
+  if (e.key === "Escape") closeLightbox();
   else if (e.key === "ArrowLeft") move(-1);
   else if (e.key === "ArrowRight") move(1);
 });
@@ -523,13 +765,18 @@ const tagsOf = (id) => (annotations[id] || (annotations[id] = []));
 
 let saveTimer = null;
 
+function notifyAnnotationsChanged() {
+  for (const cb of annotationListeners) {
+    try { cb(); } catch (err) { console.error(err); }
+  }
+}
+
 const setStatus = (text) => {
   $("#save-status").textContent = text;
-  // reflect the tagging in the page header and the browser tab title
   const n = countTagged();
   $("#hdr-count").textContent = n > 0 ? `· ${n} tagged` : "";
   document.title = n > 0 ? `Galaxy10 DECaLS gallery — ${n} tagged` : "Galaxy10 DECaLS gallery";
-  buildTagChips(); // refresh alien/not-alien counts
+  buildTagChips();
 };
 const countTagged = () => Object.values(annotations).filter((tags) => tags.length > 0).length;
 
@@ -567,12 +814,14 @@ function unionTags(id, tags) {
 function closeTagEditor() {
   $("#ann").classList.remove("open");
   annId = null;
-  applyFilters(); // refresh the tag badges and the alien/not-alien view
+  applyFilters();
+  notifyAnnotationsChanged();
 }
 
 function scheduleSave() {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(annotations));
   setStatus("saving…");
+  notifyAnnotationsChanged();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flushSave, 500);
 }
@@ -596,12 +845,29 @@ async function flushSave() {
   }
 }
 
+$("#save-annotations").onclick = () => flushSave();
+$("#apply-annotations").onclick = async () => {
+  await flushSave();
+  if (!apiAlive) return;
+  try {
+    setStatus("applying to train.csv…");
+    const res = await fetch("/api/apply", { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    setStatus(`applied ${data.annotated} rows → train.csv`);
+  } catch (err) {
+    console.error(err);
+    setStatus("apply failed");
+  }
+};
+
 /* tag editor dialog */
 let annId = null;
 
 function openTagEditor(id) {
   annId = id;
-  const m = manifest.find((x) => x.id === id);
+  const m = manifestById.get(id) || manifest.find((x) => x.id === id);
+  if (!m) return;
   $("#ann-img").src = imgSrc(m);
   $("#ann-title").textContent = `${id} · ${m.split}${m.label === null ? "" : ", class " + m.label}`;
   renderTagChips();
@@ -665,12 +931,10 @@ $("#ann-add").onclick = addTag;
 $("#ann-done").onclick = () => { flushSave(); closeTagEditor(); };
 $("#ann").addEventListener("click", (e) => { if (e.target === $("#ann")) { flushSave(); closeTagEditor(); } });
 
-/* right-click to label, from both the grid and the lightbox */
+/* right-click to label, from the grid, lightbox, or cluster inspector */
 const QUICK_TAG = "alien"; // toggled with a plain right-click
 
 const hasTag = (id, tag) => (annotations[id] ? annotations[id].includes(tag) : false);
-
-const hasQuickTag = (id) => hasTag(id, QUICK_TAG);
 
 function toggleQuickTag(id) {
   const tags = annotations[id];
@@ -679,22 +943,30 @@ function toggleQuickTag(id) {
     if (rest.length > 0) annotations[id] = rest;
     else delete annotations[id];
   } else {
-    tags.push(QUICK_TAG);
+    tagsOf(id).push(QUICK_TAG);
   }
   scheduleSave();
   applyFilters();
+  if (lb.classList.contains("open")) {
+    openLightbox(lbIndex, lbItems, lbExtraMetaFn);
+  }
 }
 
 grid.addEventListener("contextmenu", (e) => {
   const t = e.target.closest(".tile");
   if (!t) return;
   e.preventDefault();
-  toggleQuickTag(manifest[filtered[+t.dataset.i]].id);
+  const id = manifest[filtered[+t.dataset.i]].id;
+  if (e.shiftKey) openTagEditor(id);
+  else toggleQuickTag(id);
 });
 lb.addEventListener("contextmenu", (e) => {
   e.preventDefault();
-  if (!(lbIndex >= 0 && filtered.length > 0)) return;
-  toggleQuickTag(manifest[filtered[lbIndex]].id);
+  const items = currentLbItems();
+  if (!(lbIndex >= 0 && items.length > 0)) return;
+  const id = items[lbIndex].id;
+  if (e.shiftKey) openTagEditor(id);
+  else toggleQuickTag(id);
 });
 
 /* ---------- label mode (batch select + apply) ---------- */
@@ -806,14 +1078,51 @@ async function resolveDatasetRoot(firstId) {
   return null;
 }
 
+window.GalleryApp = {
+  get manifest() { return manifest; },
+  get manifestById() { return manifestById; },
+  CLASSES,
+  CLASS_COLOR,
+  color,
+  imgSrc,
+  esc,
+  clsName,
+  get annotations() { return annotations; },
+  hasTag,
+  tagsOf,
+  toggleQuickTag,
+  openTagEditor,
+  scheduleSave,
+  flushSave,
+  setStatus,
+  notifyAnnotationsChanged,
+  openLightbox,
+  openSubsetInGallery(ids, label) {
+    setSubsetFilter(ids, label);
+    setView("gallery");
+  },
+  getDatasetRoot: () => datasetRoot,
+  getCurrentView: () => currentView,
+  setView,
+  onAnnotationsChanged(cb) { annotationListeners.push(cb); },
+  onBootReady(cb) {
+    if (bootReady) cb();
+    else bootReadyCallbacks.push(cb);
+  },
+};
+
 /* ---------- boot ---------- */
 (async () => {
+  updateHeaderHeightVar();
+  if (location.hash === "#clusters") setView("clusters", false);
+
   // The manifest is generated from the dataset and is not committed: on a
   // fresh checkout this request 404s and the banner above explains what to do.
   try {
     const res = await fetch(`manifest.json?t=${Date.now()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status} for manifest.json`);
     manifest = await res.json();
+    manifestById = new Map(manifest.map((m) => [m.id, m]));
   } catch (err) {
     console.error(err);
     bootError(
@@ -840,7 +1149,10 @@ async function resolveDatasetRoot(firstId) {
   await loadAnnotations();
   buildChips();
   applyFilters();
+  bootReady = true;
+  for (const cb of bootReadyCallbacks) cb();
 })();
 </script>
+<script src="clusters.js?v=3" defer></script>
 </body>
 </html>
